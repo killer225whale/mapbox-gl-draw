@@ -1,8 +1,8 @@
-import * as CommonSelectors from '../lib/common_selectors';
-import isEventAtCoordinates from '../lib/is_event_at_coordinates';
-import doubleClickZoom from '../lib/double_click_zoom';
-import * as Constants from '../constants';
-import createVertex from '../lib/create_vertex';
+import * as CommonSelectors from "../lib/common_selectors";
+import isEventAtCoordinates from "../lib/is_event_at_coordinates";
+import doubleClickZoom from "../lib/double_click_zoom";
+import * as Constants from "../constants";
+import createVertex from "../lib/create_vertex";
 
 const DrawLineString = {};
 
@@ -11,34 +11,54 @@ DrawLineString.onSetup = function(opts) {
   const featureId = opts.featureId;
 
   let line, currentVertexPosition;
-  let direction = 'forward';
+  let direction = "forward";
   if (featureId) {
     line = this.getFeature(featureId);
     if (!line) {
-      throw new Error('Could not find a feature with the provided featureId');
+      throw new Error("Could not find a feature with the provided featureId");
     }
     let from = opts.from;
-    if (from && from.type === 'Feature' && from.geometry && from.geometry.type === 'Point') {
+    if (
+      from &&
+      from.type === "Feature" &&
+      from.geometry &&
+      from.geometry.type === "Point"
+    ) {
       from = from.geometry;
     }
-    if (from && from.type === 'Point' && from.coordinates && from.coordinates.length === 2) {
+    if (
+      from &&
+      from.type === "Point" &&
+      from.coordinates &&
+      from.coordinates.length === 2
+    ) {
       from = from.coordinates;
     }
     if (!from || !Array.isArray(from)) {
-      throw new Error('Please use the `from` property to indicate which point to continue the line from');
+      throw new Error(
+        "Please use the `from` property to indicate which point to continue the line from"
+      );
     }
     const lastCoord = line.coordinates.length - 1;
-    if (line.coordinates[lastCoord][0] === from[0] && line.coordinates[lastCoord][1] === from[1]) {
+    if (
+      line.coordinates[lastCoord][0] === from[0] &&
+      line.coordinates[lastCoord][1] === from[1]
+    ) {
       currentVertexPosition = lastCoord + 1;
       // add one new coordinate to continue from
       line.addCoordinate(currentVertexPosition, ...line.coordinates[lastCoord]);
-    } else if (line.coordinates[0][0] === from[0] && line.coordinates[0][1] === from[1]) {
-      direction = 'backwards';
+    } else if (
+      line.coordinates[0][0] === from[0] &&
+      line.coordinates[0][1] === from[1]
+    ) {
+      direction = "backwards";
       currentVertexPosition = 0;
       // add one new coordinate to continue from
       line.addCoordinate(currentVertexPosition, ...line.coordinates[0]);
     } else {
-      throw new Error('`from` should match the point at either the start or the end of the provided LineString');
+      throw new Error(
+        "`from` should match the point at either the start or the end of the provided LineString"
+      );
     }
   } else {
     line = this.newFeature({
@@ -69,26 +89,55 @@ DrawLineString.onSetup = function(opts) {
 };
 
 DrawLineString.clickAnywhere = function(state, e) {
-  if (state.currentVertexPosition > 0 && isEventAtCoordinates(e, state.line.coordinates[state.currentVertexPosition - 1]) ||
-      state.direction === 'backwards' && isEventAtCoordinates(e, state.line.coordinates[state.currentVertexPosition + 1])) {
-    return this.changeMode(Constants.modes.SIMPLE_SELECT, { featureIds: [state.line.id] });
+  if (
+    (state.currentVertexPosition > 0 &&
+      isEventAtCoordinates(
+        e,
+        state.line.coordinates[state.currentVertexPosition - 1]
+      )) ||
+    (state.direction === "backwards" &&
+      isEventAtCoordinates(
+        e,
+        state.line.coordinates[state.currentVertexPosition + 1]
+      ))
+  ) {
+    return this.changeMode(Constants.modes.SIMPLE_SELECT, {
+      featureIds: [state.line.id]
+    });
   }
   this.updateUIClasses({ mouse: Constants.cursors.ADD });
-  state.line.updateCoordinate(state.currentVertexPosition, e.lngLat.lng, e.lngLat.lat);
-  if (state.direction === 'forward') {
+  state.line.updateCoordinate(
+    state.currentVertexPosition,
+    e.lngLat.lng,
+    e.lngLat.lat
+  );
+  if (state.direction === "forward") {
     state.currentVertexPosition++;
-    state.line.updateCoordinate(state.currentVertexPosition, e.lngLat.lng, e.lngLat.lat);
+    state.line.updateCoordinate(
+      state.currentVertexPosition,
+      e.lngLat.lng,
+      e.lngLat.lat
+    );
   } else {
     state.line.addCoordinate(0, e.lngLat.lng, e.lngLat.lat);
   }
 };
 
 DrawLineString.clickOnVertex = function(state) {
-  return this.changeMode(Constants.modes.SIMPLE_SELECT, { featureIds: [state.line.id] });
+  return this.changeMode(Constants.modes.SIMPLE_SELECT, {
+    featureIds: [state.line.id]
+  });
 };
 
 DrawLineString.onMouseMove = function(state, e) {
-  state.line.updateCoordinate(state.currentVertexPosition, e.lngLat.lng, e.lngLat.lat);
+  if (this._ctx.options.cursorPreprocessor !== undefined) {
+    e = this._ctx.options.cursorPreprocessor(e);
+  }
+  state.line.updateCoordinate(
+    state.currentVertexPosition,
+    e.lngLat.lng,
+    e.lngLat.lat
+  );
   if (CommonSelectors.isVertex(e)) {
     this.updateUIClasses({ mouse: Constants.cursors.POINTER });
   }
@@ -96,12 +145,17 @@ DrawLineString.onMouseMove = function(state, e) {
 
 DrawLineString.onTap = DrawLineString.onClick = function(state, e) {
   if (CommonSelectors.isVertex(e)) return this.clickOnVertex(state, e);
+  if (this._ctx.options.cursorPreprocessor !== undefined) {
+    e = this._ctx.options.cursorPreprocessor(e);
+  }
   this.clickAnywhere(state, e);
 };
 
 DrawLineString.onKeyUp = function(state, e) {
   if (CommonSelectors.isEnterKey(e)) {
-    this.changeMode(Constants.modes.SIMPLE_SELECT, { featureIds: [state.line.id] });
+    this.changeMode(Constants.modes.SIMPLE_SELECT, {
+      featureIds: [state.line.id]
+    });
   } else if (CommonSelectors.isEscapeKey(e)) {
     this.deleteFeature([state.line.id], { silent: true });
     this.changeMode(Constants.modes.SIMPLE_SELECT);
@@ -134,17 +188,63 @@ DrawLineString.onTrash = function(state) {
 
 DrawLineString.toDisplayFeatures = function(state, geojson, display) {
   const isActiveLine = geojson.properties.id === state.line.id;
-  geojson.properties.active = (isActiveLine) ? Constants.activeStates.ACTIVE : Constants.activeStates.INACTIVE;
+  geojson.properties.active = isActiveLine
+    ? Constants.activeStates.ACTIVE
+    : Constants.activeStates.INACTIVE;
   if (!isActiveLine) return display(geojson);
+
+  const coordinateCount = geojson.geometry.coordinates.length;
+  console.log(coordinateCount);
+  //Render the cursor point if there is a cursor preprocessor
+  if (
+    coordinateCount > 0 &&
+    this._ctx.options.cursorPreprocessor !== undefined
+  ) {
+    display({
+      type: "Feature",
+      properties: {
+        active: "true"
+      },
+      geometry: {
+        coordinates: geojson.geometry.coordinates[coordinateCount - 1],
+        type: "Point"
+      }
+    });
+  }
+
+  //Display each point in the line
+  for (var c = 0; c < coordinateCount - 1; c++) {
+    display(
+      createVertex(
+        state.line.id,
+        geojson.geometry.coordinates[c],
+        `${c}`,
+        false
+      )
+    );
+  }
+
+  /*
   // Only render the line if it has at least one real coordinate
   if (geojson.geometry.coordinates.length < 2) return;
   geojson.properties.meta = Constants.meta.FEATURE;
-  display(createVertex(
-    state.line.id,
-    geojson.geometry.coordinates[state.direction === 'forward' ? geojson.geometry.coordinates.length - 2 : 1],
-    `${state.direction === 'forward' ? geojson.geometry.coordinates.length - 2 : 1}`,
-    false
-  ));
+  display(
+    createVertex(
+      state.line.id,
+      geojson.geometry.coordinates[
+        state.direction === "forward"
+          ? geojson.geometry.coordinates.length - 2
+          : 1
+      ],
+      `${
+        state.direction === "forward"
+          ? geojson.geometry.coordinates.length - 2
+          : 1
+      }`,
+      false
+    )
+  );
+  */
 
   display(geojson);
 };

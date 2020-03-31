@@ -1,5 +1,5 @@
-import * as CommonSelectors from '../lib/common_selectors';
-import * as Constants from '../constants';
+import * as CommonSelectors from "../lib/common_selectors";
+import * as Constants from "../constants";
 
 const DrawPoint = {};
 
@@ -32,12 +32,24 @@ DrawPoint.stopDrawingAndRemove = function(state) {
 };
 
 DrawPoint.onTap = DrawPoint.onClick = function(state, e) {
+  if (this._ctx.options.cursorPreprocessor !== undefined) {
+    e = this._ctx.options.cursorPreprocessor(e);
+  }
   this.updateUIClasses({ mouse: Constants.cursors.MOVE });
-  state.point.updateCoordinate('', e.lngLat.lng, e.lngLat.lat);
+  state.point.updateCoordinate("", e.lngLat.lng, e.lngLat.lat);
   this.map.fire(Constants.events.CREATE, {
     features: [state.point.toGeoJSON()]
   });
-  this.changeMode(Constants.modes.SIMPLE_SELECT, { featureIds: [state.point.id] });
+  this.changeMode(Constants.modes.SIMPLE_SELECT, {
+    featureIds: [state.point.id]
+  });
+};
+
+DrawPoint.onMouseMove = function(state, e) {
+  if (this._ctx.options.cursorPreprocessor !== undefined) {
+    e = this._ctx.options.cursorPreprocessor(e);
+    state.point.updateCoordinate("", e.lngLat.lng, e.lngLat.lat);
+  }
 };
 
 DrawPoint.onStop = function(state) {
@@ -48,10 +60,24 @@ DrawPoint.onStop = function(state) {
 };
 
 DrawPoint.toDisplayFeatures = function(state, geojson, display) {
-  // Never render the point we're drawing
-  const isActivePoint = geojson.properties.id === state.point.id;
-  geojson.properties.active = (isActivePoint) ? Constants.activeStates.ACTIVE : Constants.activeStates.INACTIVE;
-  if (!isActivePoint) return display(geojson);
+  // Only render the point we're drawing if no cursor preprocessor
+  if (this._ctx.options.cursorPreprocessor !== undefined) {
+    geojson.properties.active = Constants.activeStates.ACTIVE;
+    display({
+      type: "Feature",
+      properties: geojson.properties,
+      geometry: {
+        coordinates: state.point.getCoordinate(),
+        type: "Point"
+      }
+    });
+  } else {
+    const isActivePoint = geojson.properties.id === state.point.id;
+    geojson.properties.active = isActivePoint
+      ? Constants.activeStates.ACTIVE
+      : Constants.activeStates.INACTIVE;
+    if (!isActivePoint) return display(geojson);
+  }
 };
 
 DrawPoint.onTrash = DrawPoint.stopDrawingAndRemove;
